@@ -6,17 +6,10 @@ export default function Home() {
   const [text, setText] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [copied, setCopied] = useState(false);
-
   const backendURL = "https://readability-backend-production.up.railway.app";
 
   const analyzeText = async () => {
-    if (!text.trim()) {
-      setError("Please enter some text to analyze.");
-      return;
-    }
-    setError(null);
+    if (!text.trim()) return alert("Please enter some text first!");
     setLoading(true);
     try {
       const res = await fetch(`${backendURL}/analyze`, {
@@ -27,153 +20,120 @@ export default function Home() {
       const data = await res.json();
       setResult(data);
     } catch (err) {
-      console.error(err);
-      setError("Failed to fetch results. Please try again later.");
+      console.error("Error analyzing text:", err);
+      alert("Failed to analyze text. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  // ✂️ Copy report to clipboard
   const copyReport = () => {
     if (!result) return;
-    const report = `
-📊 Readability Summary
-
-🧠 Overall Readability: ${result.summary.overall_readability}
-🎓 Education Level: ${result.summary.education_level}
-✍️ Sentence Complexity: ${result.summary.sentence_complexity}
-💬 Word Simplicity: ${result.summary.word_simplicity}
-
-Raw Scores:
-Flesch: ${result.raw_scores.flesch_reading_ease.toFixed(2)}
-Fog: ${result.raw_scores.gunning_fog_index.toFixed(2)}
-SMOG: ${result.raw_scores.smog_index.toFixed(2)}
-ARI: ${result.raw_scores.automated_readability_index.toFixed(2)}
-Dale–Chall: ${result.raw_scores.dale_chall_score.toFixed(2)}
-    `;
-    navigator.clipboard.writeText(report);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    navigator.clipboard.writeText(JSON.stringify(result, null, 2));
+    alert("Report copied to clipboard!");
   };
 
-  // 📄 Generate PDF
   const downloadPDF = () => {
     if (!result) return;
     const doc = new jsPDF();
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(16);
-    doc.text("📊 Readability Report", 20, 20);
+    doc.text("Readability Analysis Report", 10, 20);
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(12);
-    doc.text(`🧠 Overall Readability: ${result.summary.overall_readability}`, 20, 40);
-    doc.text(`🎓 Education Level: ${result.summary.education_level}`, 20, 50);
-    doc.text(`✍️ Sentence Complexity: ${result.summary.sentence_complexity}`, 20, 60);
-    doc.text(`💬 Word Simplicity: ${result.summary.word_simplicity}`, 20, 70);
-
-    doc.setFontSize(14);
-    doc.text("Raw Scores:", 20, 90);
-    doc.setFontSize(12);
-    doc.text(`Flesch: ${result.raw_scores.flesch_reading_ease.toFixed(2)}`, 20, 100);
-    doc.text(`Fog: ${result.raw_scores.gunning_fog_index.toFixed(2)}`, 20, 110);
-    doc.text(`SMOG: ${result.raw_scores.smog_index.toFixed(2)}`, 20, 120);
-    doc.text(`ARI: ${result.raw_scores.automated_readability_index.toFixed(2)}`, 20, 130);
-    doc.text(`Dale–Chall: ${result.raw_scores.dale_chall_score.toFixed(2)}`, 20, 140);
-
-    doc.save("readability_report.pdf");
+    doc.text(`Overall Readability: ${result.summary.overall_readability}`, 10, 40);
+    doc.text(`Insight: ${result.summary.insight}`, 10, 50);
+    doc.text(`Suggestion: ${result.summary.suggestion}`, 10, 60);
+    doc.text(`Education Level: ${result.summary.education_level}`, 10, 70);
+    doc.text(`Sentence Complexity: ${result.summary.sentence_complexity}`, 10, 80);
+    doc.text(`Word Simplicity: ${result.summary.word_simplicity}`, 10, 90);
+    doc.save("readability-report.pdf");
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-6 py-10 bg-gradient-to-b from-white to-blue-50 text-gray-800">
-      <h1 className="text-4xl font-bold mb-4 text-center text-blue-700">
-        🧠 Readability Analyzer
-      </h1>
-      <p className="text-gray-600 mb-8 text-center max-w-xl">
-        Paste any paragraph below to check how easy or complex it is to read.
-      </p>
+    <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex flex-col items-center px-6 py-10">
+      <div className="max-w-3xl w-full bg-white shadow-xl rounded-2xl p-8 border border-gray-100">
+        <h1 className="text-3xl font-bold text-center mb-6 text-blue-700">
+          🧠 Readability Analyzer
+        </h1>
 
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        className="w-full max-w-2xl p-4 rounded-xl border border-gray-300 shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-        rows="6"
-        placeholder="Enter your text here..."
-      />
+        <textarea
+          className="w-full h-40 border border-gray-300 rounded-lg p-4 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+          placeholder="Paste or type your text here..."
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
 
-      <button
-        onClick={analyzeText}
-        className="mt-4 px-8 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all"
-        disabled={loading}
-      >
-        {loading ? "Analyzing..." : "Analyze Text"}
-      </button>
+        <div className="flex justify-center mt-4">
+          <button
+            onClick={analyzeText}
+            disabled={loading}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400"
+          >
+            {loading ? "Analyzing..." : "Analyze Text"}
+          </button>
+        </div>
 
-      {error && (
-        <p className="text-red-600 mt-4 font-medium">{error}</p>
-      )}
+        {result && (
+          <div className="mt-8 space-y-6">
+            {/* SUMMARY SECTION */}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 shadow-sm">
+              <h2 className="text-2xl font-semibold mb-2 text-blue-700">
+                📊 Readability Summary
+              </h2>
 
-      {result && (
-        <div className="mt-10 w-full max-w-3xl bg-white rounded-2xl shadow-lg p-8 transition-all">
-          <h2 className="text-2xl font-semibold text-center mb-6 text-gray-800">
-            📊 Readability Summary
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="p-4 rounded-xl bg-blue-50 border border-blue-100">
-              <h3 className="text-blue-700 font-semibold text-lg">🧠 Overall Readability</h3>
-              <p className="text-gray-700 text-md mt-1">
+              <p className="text-lg">
+                <strong>🧠 Overall Readability:</strong>{" "}
                 {result.summary.overall_readability}
               </p>
+
+              <p className="text-gray-700 mt-1">
+                💡 <strong>Insight:</strong> {result.summary.insight}
+              </p>
+
+              <p className="text-gray-700 mt-1">
+                ✨ <strong>Suggestion:</strong> {result.summary.suggestion}
+              </p>
+
+              <div className="mt-4 text-gray-800">
+                <p>🎓 <strong>Education Level:</strong> {result.summary.education_level}</p>
+                <p>✍️ <strong>Sentence Complexity:</strong> {result.summary.sentence_complexity}</p>
+                <p>💬 <strong>Word Simplicity:</strong> {result.summary.word_simplicity}</p>
+              </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-green-50 border border-green-100">
-              <h3 className="text-green-700 font-semibold text-lg">🎓 Education Level</h3>
-              <p className="text-gray-700 text-md mt-1">
-                {result.summary.education_level}
-              </p>
+            {/* RAW SCORES */}
+            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+              <h2 className="text-xl font-semibold mb-3 text-gray-800">
+                📈 Detailed Metrics
+              </h2>
+              <ul className="space-y-2 text-gray-700">
+                {Object.entries(result.raw_scores).map(([key, value]) => (
+                  <li key={key}>
+                    <strong>{key.replace(/_/g, " ")}:</strong> {value.toFixed(2)}
+                  </li>
+                ))}
+              </ul>
             </div>
 
-            <div className="p-4 rounded-xl bg-yellow-50 border border-yellow-100">
-              <h3 className="text-yellow-700 font-semibold text-lg">✍️ Sentence Complexity</h3>
-              <p className="text-gray-700 text-md mt-1">
-                {result.summary.sentence_complexity}
-              </p>
-            </div>
-
-            <div className="p-4 rounded-xl bg-purple-50 border border-purple-100">
-              <h3 className="text-purple-700 font-semibold text-lg">💬 Word Simplicity</h3>
-              <p className="text-gray-700 text-md mt-1">
-                {result.summary.word_simplicity}
-              </p>
+            {/* BUTTONS */}
+            <div className="flex justify-center gap-4 mt-6">
+              <button
+                onClick={copyReport}
+                className="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700 transition"
+              >
+                📋 Copy Report
+              </button>
+              <button
+                onClick={downloadPDF}
+                className="bg-purple-600 text-white px-5 py-2 rounded-lg hover:bg-purple-700 transition"
+              >
+                📄 Download PDF
+              </button>
             </div>
           </div>
-
-          <div className="mt-8 border-t pt-6 text-sm text-gray-600">
-            <p>
-              🧾 <b>Flesch:</b> {result.raw_scores.flesch_reading_ease.toFixed(2)} | 
-              <b> Fog:</b> {result.raw_scores.gunning_fog_index.toFixed(2)} | 
-              <b> SMOG:</b> {result.raw_scores.smog_index.toFixed(2)} | 
-              <b> ARI:</b> {result.raw_scores.automated_readability_index.toFixed(2)} | 
-              <b> Dale–Chall:</b> {result.raw_scores.dale_chall_score.toFixed(2)}
-            </p>
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex flex-col md:flex-row items-center justify-center gap-4 mt-8">
-            <button
-              onClick={copyReport}
-              className="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-all"
-            >
-              {copied ? "✅ Report Copied!" : "📋 Copy Report"}
-            </button>
-
-            <button
-              onClick={downloadPDF}
-              className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all"
-            >
-              📄 Download PDF
-            </button>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </main>
   );
 }
