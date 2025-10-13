@@ -1,11 +1,13 @@
 "use client";
 import { useState } from "react";
+import jsPDF from "jspdf";
 
 export default function Home() {
   const [text, setText] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   const backendURL = "https://readability-backend-production.up.railway.app";
 
@@ -30,6 +32,53 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // ✂️ Copy report to clipboard
+  const copyReport = () => {
+    if (!result) return;
+    const report = `
+📊 Readability Summary
+
+🧠 Overall Readability: ${result.summary.overall_readability}
+🎓 Education Level: ${result.summary.education_level}
+✍️ Sentence Complexity: ${result.summary.sentence_complexity}
+💬 Word Simplicity: ${result.summary.word_simplicity}
+
+Raw Scores:
+Flesch: ${result.raw_scores.flesch_reading_ease.toFixed(2)}
+Fog: ${result.raw_scores.gunning_fog_index.toFixed(2)}
+SMOG: ${result.raw_scores.smog_index.toFixed(2)}
+ARI: ${result.raw_scores.automated_readability_index.toFixed(2)}
+Dale–Chall: ${result.raw_scores.dale_chall_score.toFixed(2)}
+    `;
+    navigator.clipboard.writeText(report);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // 📄 Generate PDF
+  const downloadPDF = () => {
+    if (!result) return;
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("📊 Readability Report", 20, 20);
+    doc.setFontSize(12);
+    doc.text(`🧠 Overall Readability: ${result.summary.overall_readability}`, 20, 40);
+    doc.text(`🎓 Education Level: ${result.summary.education_level}`, 20, 50);
+    doc.text(`✍️ Sentence Complexity: ${result.summary.sentence_complexity}`, 20, 60);
+    doc.text(`💬 Word Simplicity: ${result.summary.word_simplicity}`, 20, 70);
+
+    doc.setFontSize(14);
+    doc.text("Raw Scores:", 20, 90);
+    doc.setFontSize(12);
+    doc.text(`Flesch: ${result.raw_scores.flesch_reading_ease.toFixed(2)}`, 20, 100);
+    doc.text(`Fog: ${result.raw_scores.gunning_fog_index.toFixed(2)}`, 20, 110);
+    doc.text(`SMOG: ${result.raw_scores.smog_index.toFixed(2)}`, 20, 120);
+    doc.text(`ARI: ${result.raw_scores.automated_readability_index.toFixed(2)}`, 20, 130);
+    doc.text(`Dale–Chall: ${result.raw_scores.dale_chall_score.toFixed(2)}`, 20, 140);
+
+    doc.save("readability_report.pdf");
   };
 
   return (
@@ -106,21 +155,25 @@ export default function Home() {
               <b> Dale–Chall:</b> {result.raw_scores.dale_chall_score.toFixed(2)}
             </p>
           </div>
+
+          {/* Action buttons */}
+          <div className="flex flex-col md:flex-row items-center justify-center gap-4 mt-8">
+            <button
+              onClick={copyReport}
+              className="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-all"
+            >
+              {copied ? "✅ Report Copied!" : "📋 Copy Report"}
+            </button>
+
+            <button
+              onClick={downloadPDF}
+              className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all"
+            >
+              📄 Download PDF
+            </button>
+          </div>
         </div>
       )}
-
-      <footer className="mt-12 text-center text-gray-600 text-sm">
-        Built with ❤️ by{" "}
-        <a
-          href="https://github.com/NadimS07"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-600 hover:underline font-medium"
-        >
-          Nadim Sheikh
-        </a>{" "}
-        | Powered by FastAPI + Next.js ⚡
-      </footer>
     </main>
   );
 }
