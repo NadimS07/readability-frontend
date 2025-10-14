@@ -9,7 +9,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState("readability");
 
-  // ✅ Automatically switch between local and Railway backend
+  // ✅ Automatically switch between local (dev) and Railway (live)
   const backendURL =
     typeof window !== "undefined" && window.location.hostname === "localhost"
       ? "http://127.0.0.1:8000"
@@ -30,7 +30,7 @@ export default function Home() {
         ? "/analyze_readability"
         : mode === "tone"
         ? "/analyze_tone"
-        : "/check_plagiarism";
+        : "/analyze_plagiarism"; // ✅ fixed endpoint name to match backend
 
     try {
       const res = await fetch(`${backendURL}${endpoint}`, {
@@ -43,8 +43,10 @@ export default function Home() {
       const data = await res.json();
       setResult(data);
     } catch (err) {
-      alert("⚠️ Could not reach backend. Please ensure FastAPI is running or Railway is live.");
       console.error("❌ Backend connection error:", err);
+      alert(
+        "⚠️ Could not reach backend. Please ensure FastAPI (Railway backend) is live."
+      );
     } finally {
       setLoading(false);
     }
@@ -94,10 +96,10 @@ export default function Home() {
   // ---------- Card Component ----------
   const Card = ({ title, value, color }) => (
     <div
-      className={`p-5 rounded-2xl border-l-4 ${color} bg-[#0f172a] text-gray-100 shadow-md hover:shadow-lg transition-all`}
+      className={`p-5 rounded-2xl border-l-4 ${color} bg-[#f8fafc] text-gray-900 shadow-md hover:shadow-lg transition-all`}
     >
       <h3 className="text-lg font-bold text-black">{title}</h3>
-      <p className="text-gray-300 mt-1">{value}</p>
+      <p className="text-gray-600 mt-1">{value}</p>
     </div>
   );
 
@@ -132,7 +134,7 @@ export default function Home() {
       {/* Input Box */}
       <textarea
         placeholder="Type or paste your text here..."
-        className="w-full md:w-2/3 h-44 p-4 bg-[#0f172a] border border-[#334155] rounded-2xl text-black shadow-inner focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+        className="w-full md:w-2/3 h-44 p-4 bg-white border border-[#334155] rounded-2xl text-black shadow-inner focus:ring-2 focus:ring-blue-500 outline-none resize-none"
         value={text}
         onChange={(e) => setText(e.target.value)}
       />
@@ -141,7 +143,9 @@ export default function Home() {
         onClick={analyzeText}
         className="mt-6 px-6 py-2.5 rounded-xl font-semibold text-white bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 transition-all shadow-md"
       >
-        {loading ? "Analyzing..." : `Analyze ${mode.charAt(0).toUpperCase() + mode.slice(1)}`}
+        {loading
+          ? "Analyzing..."
+          : `Analyze ${mode.charAt(0).toUpperCase() + mode.slice(1)}`}
       </button>
 
       {/* Results */}
@@ -153,30 +157,78 @@ export default function Home() {
                 📘 Readability Summary
               </h2>
               <div className="grid md:grid-cols-2 gap-4">
-                <Card title="Overall Readability" value={result.summary.overall_readability} color="border-blue-500" />
-                <Card title="Education Level" value={result.summary.education_level} color="border-green-500" />
-                <Card title="Sentence Complexity" value={result.summary.sentence_complexity} color="border-yellow-400" />
-                <Card title="Word Simplicity" value={result.summary.word_simplicity} color="border-purple-400" />
+                <Card
+                  title="Overall Readability"
+                  value={result.summary.overall_readability}
+                  color="border-blue-500"
+                />
+                <Card
+                  title="Education Level"
+                  value={result.summary.education_level}
+                  color="border-green-500"
+                />
+                <Card
+                  title="Sentence Complexity"
+                  value={result.summary.sentence_complexity}
+                  color="border-yellow-400"
+                />
+                <Card
+                  title="Word Simplicity"
+                  value={result.summary.word_simplicity}
+                  color="border-purple-400"
+                />
               </div>
-              <Card title="Insight" value={result.summary.insight} color="border-cyan-400" />
-              <Card title="Suggestion" value={result.summary.suggestion} color="border-gray-500" />
+              <Card
+                title="Insight"
+                value={result.summary.insight}
+                color="border-cyan-400"
+              />
+              <Card
+                title="Suggestion"
+                value={result.summary.suggestion}
+                color="border-gray-500"
+              />
             </>
           )}
 
           {mode === "tone" && result.summary && (
             <>
-              <h2 className="text-2xl font-semibold text-cyan-300 mb-4">💬 Tone Analysis</h2>
-              <Card title="Dominant Tone" value={result.summary.dominant_tone} color="border-blue-500" />
-              <Card title="Confidence" value={result.summary.confidence} color="border-green-400" />
-              <Card title="Feedback" value={result.summary.feedback} color="border-yellow-500" />
+              <h2 className="text-2xl font-semibold text-cyan-300 mb-4">
+                💬 Tone Analysis
+              </h2>
+              <Card
+                title="Dominant Tone"
+                value={result.summary.dominant_tone}
+                color="border-blue-500"
+              />
+              <Card
+                title="Confidence"
+                value={result.summary.confidence}
+                color="border-green-400"
+              />
+              <Card
+                title="Feedback"
+                value={result.summary.feedback}
+                color="border-yellow-500"
+              />
             </>
           )}
 
           {mode === "plagiarism" && result.summary && (
             <>
-              <h2 className="text-2xl font-semibold text-red-300 mb-4">🔍 Plagiarism Report</h2>
-              <Card title="Plagiarism Score" value={result.summary.plagiarism_score} color="border-red-500" />
-              <Card title="Feedback" value={result.summary.feedback} color="border-gray-500" />
+              <h2 className="text-2xl font-semibold text-red-300 mb-4">
+                🔍 Plagiarism Report
+              </h2>
+              <Card
+                title="Plagiarism Score"
+                value={result.summary.plagiarism_score}
+                color="border-red-500"
+              />
+              <Card
+                title="Feedback"
+                value={result.summary.feedback}
+                color="border-gray-500"
+              />
             </>
           )}
 
