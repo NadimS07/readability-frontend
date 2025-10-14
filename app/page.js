@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import jsPDF from "jspdf";
 
@@ -6,248 +7,196 @@ export default function Home() {
   const [text, setText] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [mode, setMode] = useState("readability");
 
-  const backendURL = "https://readability-backend-production.up.railway.app";
+  // ✅ Automatically switch between local and Railway backend
+  const backendURL =
+    typeof window !== "undefined" && window.location.hostname === "localhost"
+      ? "http://127.0.0.1:8000"
+      : "https://readability-backend-production.up.railway.app";
 
+  // ---------- Analyze API ----------
   const analyzeText = async () => {
     if (!text.trim()) {
-      setError("Please enter some text to analyze.");
+      alert("Please enter some text first.");
       return;
     }
 
-    setError(null);
     setLoading(true);
+    setResult(null);
+
+    const endpoint =
+      mode === "readability"
+        ? "/analyze_readability"
+        : mode === "tone"
+        ? "/analyze_tone"
+        : "/check_plagiarism";
+
     try {
-      const res = await fetch(`${backendURL}/analyze`, {
+      const res = await fetch(`${backendURL}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
       });
 
-      if (!res.ok) throw new Error("Failed to analyze text");
+      if (!res.ok) throw new Error("Backend fetch failed");
       const data = await res.json();
       setResult(data);
     } catch (err) {
-      console.error(err);
-      setError("Unable to fetch results. Please try again later.");
+      alert("⚠️ Could not reach backend. Please ensure FastAPI is running or Railway is live.");
+      console.error("❌ Backend connection error:", err);
     } finally {
       setLoading(false);
     }
   };
 
+  // ---------- Copy Report ----------
   const copyReport = () => {
     if (!result) return;
-    const summary = result.summary;
-    const report = `
-Readability Summary
----------------------
-Overall Readability: ${summary.overall_readability}
-Education Level: ${summary.education_level}
-Sentence Complexity: ${summary.sentence_complexity}
-Word Simplicity: ${summary.word_simplicity}
+    let report = `AI Readability, Tone & Plagiarism Report\n\n`;
 
-Insight:
-${summary.insight}
+    if (mode === "readability" && result.summary) {
+      report += `Overall Readability: ${result.summary.overall_readability}\n`;
+      report += `Education Level: ${result.summary.education_level}\n`;
+      report += `Sentence Complexity: ${result.summary.sentence_complexity}\n`;
+      report += `Word Simplicity: ${result.summary.word_simplicity}\n`;
+      report += `Insight: ${result.summary.insight}\n`;
+      report += `Suggestion: ${result.summary.suggestion}`;
+    } else if (mode === "tone" && result.summary) {
+      report += `Dominant Tone: ${result.summary.dominant_tone}\n`;
+      report += `Confidence: ${result.summary.confidence}\n`;
+      report += `Feedback: ${result.summary.feedback}`;
+    } else if (mode === "plagiarism" && result.summary) {
+      report += `Plagiarism Score: ${result.summary.plagiarism_score}\n`;
+      report += `Feedback: ${result.summary.feedback}`;
+    }
 
-Suggestion:
-${summary.suggestion}
-`;
     navigator.clipboard.writeText(report);
-    alert("Report copied to clipboard!");
+    alert("✅ Report copied to clipboard!");
   };
 
+  // ---------- Download as PDF ----------
   const downloadPDF = () => {
     if (!result) return;
-
     const doc = new jsPDF();
-    const summary = result.summary;
-    const scores = result.raw_scores;
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.text("Readability Analysis Report", 14, 20);
-
-    doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
-    doc.text("Summary", 14, 35);
+    doc.text("AI Readability, Tone & Plagiarism Report", 15, 20);
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(12);
-    const summaryLines = [
-      `Overall Readability: ${summary.overall_readability}`,
-      `Education Level: ${summary.education_level}`,
-      `Sentence Complexity: ${summary.sentence_complexity}`,
-      `Word Simplicity: ${summary.word_simplicity}`,
-    ];
-    doc.text(summaryLines, 14, 45);
+    let y = 35;
+    Object.entries(result.summary).forEach(([key, value]) => {
+      doc.text(`${key.replace(/_/g, " ")}: ${value}`, 15, y);
+      y += 10;
+    });
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.text("Insight", 14, 75);
-    doc.setFont("helvetica", "normal");
-    doc.text(doc.splitTextToSize(summary.insight, 180), 14, 85);
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.text("Suggestion", 14, 110);
-    doc.setFont("helvetica", "normal");
-    doc.text(doc.splitTextToSize(summary.suggestion, 180), 14, 120);
-
-    doc.save("Readability_Report.pdf");
+    doc.save("AI_Report.pdf");
   };
 
-  const getScoreColor = (value, metric) => {
-    if (metric === "flesch_reading_ease") {
-      if (value > 80) return "bg-green-100 text-green-900";
-      if (value > 50) return "bg-yellow-100 text-yellow-900";
-      return "bg-red-100 text-red-900";
-    } else {
-      if (value < 8) return "bg-green-100 text-green-900";
-      if (value < 12) return "bg-yellow-100 text-yellow-900";
-      return "bg-red-100 text-red-900";
-    }
-  };
-
-  const getBarWidth = (value, metric) => {
-    if (metric === "flesch_reading_ease") return `${Math.min(value, 100)}%`;
-    return `${Math.min((20 - value) * 5, 100)}%`;
-  };
+  // ---------- Card Component ----------
+  const Card = ({ title, value, color }) => (
+    <div
+      className={`p-5 rounded-2xl border-l-4 ${color} bg-[#0f172a] text-gray-100 shadow-md hover:shadow-lg transition-all`}
+    >
+      <h3 className="text-lg font-bold text-black">{title}</h3>
+      <p className="text-gray-300 mt-1">{value}</p>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 via-indigo-50 to-gray-200 flex flex-col items-center py-10 px-4">
-      {/* Hero Section */}
-      <div className="text-center mb-10">
-        <h1 className="text-5xl font-extrabold text-gray-900 mb-3 drop-shadow-sm">
-          Readability Analyzer
-        </h1>
-        <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-          Instantly measure the clarity, complexity, and readability of your
-          text with AI-powered analysis.
-        </p>
-      </div>
+    <main className="min-h-screen bg-gradient-to-b from-[#0a0f1e] via-[#0e1a34] to-[#0f172a] flex flex-col items-center px-6 py-10 text-white">
+      <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 mb-3">
+        AI Readability, Tone & Plagiarism Analyzer
+      </h1>
+      <p className="text-gray-400 mb-8 text-center max-w-2xl">
+        Analyze your text’s clarity, tone, and originality — all in one place.
+      </p>
 
-      {/* Input Section */}
-      <div className="w-full max-w-4xl backdrop-blur-xl bg-white/70 border border-gray-200 shadow-lg rounded-2xl p-6">
-        <textarea
-          className="w-full h-52 p-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white resize-none"
-          placeholder="Paste or type your text here..."
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-        ></textarea>
-
-        <div className="flex justify-center mt-6">
+      {/* Mode Selector */}
+      <div className="flex flex-wrap justify-center gap-3 mb-6">
+        {["readability", "tone", "plagiarism"].map((m) => (
           <button
-            onClick={analyzeText}
-            disabled={loading}
-            className="px-8 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-all"
+            key={m}
+            onClick={() => setMode(m)}
+            className={`px-5 py-2.5 rounded-xl font-medium transition-all ${
+              mode === m
+                ? "bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-md"
+                : "bg-[#1e293b] text-gray-300 hover:bg-[#2b3b4f]"
+            }`}
           >
-            {loading ? "Analyzing..." : "Analyze Text"}
+            {m === "readability" && "📘 Readability"}
+            {m === "tone" && "💬 Tone"}
+            {m === "plagiarism" && "🔍 Plagiarism"}
           </button>
-        </div>
+        ))}
       </div>
 
-      {error && <p className="text-red-600 mt-4">{error}</p>}
+      {/* Input Box */}
+      <textarea
+        placeholder="Type or paste your text here..."
+        className="w-full md:w-2/3 h-44 p-4 bg-[#0f172a] border border-[#334155] rounded-2xl text-black shadow-inner focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
 
-      {/* Results Section */}
+      <button
+        onClick={analyzeText}
+        className="mt-6 px-6 py-2.5 rounded-xl font-semibold text-white bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 transition-all shadow-md"
+      >
+        {loading ? "Analyzing..." : `Analyze ${mode.charAt(0).toUpperCase() + mode.slice(1)}`}
+      </button>
+
+      {/* Results */}
       {result && (
-        <div className="mt-12 w-full max-w-5xl bg-white/80 backdrop-blur-md shadow-xl rounded-2xl p-8 border border-gray-100">
-          <h2 className="text-3xl font-bold mb-6 text-gray-900 text-center">
-            Readability Summary
-          </h2>
-
-          {/* Summary Flash Cards */}
-          <div className="grid sm:grid-cols-2 gap-5 mb-8">
-            <div className="bg-gray-50 shadow-md rounded-xl p-4 hover:shadow-lg transition-all">
-              <h3 className="font-bold text-black text-lg">
-                Overall Readability
-              </h3>
-              <p className="text-gray-700 text-base mt-1">
-                {result.summary.overall_readability}
-              </p>
-            </div>
-
-            <div className="bg-gray-50 shadow-md rounded-xl p-4 hover:shadow-lg transition-all">
-              <h3 className="font-bold text-black text-lg">Education Level</h3>
-              <p className="text-gray-700 text-base mt-1">
-                {result.summary.education_level}
-              </p>
-            </div>
-
-            <div className="bg-gray-50 shadow-md rounded-xl p-4 hover:shadow-lg transition-all">
-              <h3 className="font-bold text-black text-lg">
-                Sentence Complexity
-              </h3>
-              <p className="text-gray-700 text-base mt-1">
-                {result.summary.sentence_complexity}
-              </p>
-            </div>
-
-            <div className="bg-gray-50 shadow-md rounded-xl p-4 hover:shadow-lg transition-all">
-              <h3 className="font-bold text-black text-lg">Word Simplicity</h3>
-              <p className="text-gray-700 text-base mt-1">
-                {result.summary.word_simplicity}
-              </p>
-            </div>
-          </div>
-
-          {/* Insight and Suggestion */}
-          <div className="bg-indigo-50 rounded-xl p-5 mb-6 shadow-inner">
-            <h3 className="text-lg font-bold text-black mb-1">Insight</h3>
-            <p className="text-gray-700 italic">{result.summary.insight}</p>
-          </div>
-
-          <div className="bg-green-50 rounded-xl p-5 shadow-inner">
-            <h3 className="text-lg font-bold text-black mb-1">Suggestion</h3>
-            <p className="text-gray-700 italic">{result.summary.suggestion}</p>
-          </div>
-
-          {/* Metric Cards */}
-          <h3 className="text-2xl font-bold mt-10 mb-4 text-center text-gray-900">
-            Key Readability Metrics
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {Object.entries(result.raw_scores).map(([key, value]) => (
-              <div
-                key={key}
-                className={`rounded-xl p-4 shadow-md ${getScoreColor(
-                  value,
-                  key
-                )} transition-transform transform hover:scale-105`}
-              >
-                <p className="font-bold text-sm uppercase tracking-wide mb-2 text-center">
-                  {key.replace(/_/g, " ")}
-                </p>
-                <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden mb-2">
-                  <div
-                    className="absolute top-0 left-0 h-full bg-indigo-600 transition-all"
-                    style={{ width: getBarWidth(value, key) }}
-                  ></div>
-                </div>
-                <p className="text-center text-lg font-semibold">
-                  {value.toFixed(2)}
-                </p>
+        <div className="w-full md:w-2/3 mt-10 bg-[#0b1120] rounded-2xl shadow-xl p-6 space-y-6 border border-[#1e293b]">
+          {mode === "readability" && result.summary && (
+            <>
+              <h2 className="text-2xl font-semibold text-blue-300 mb-4">
+                📘 Readability Summary
+              </h2>
+              <div className="grid md:grid-cols-2 gap-4">
+                <Card title="Overall Readability" value={result.summary.overall_readability} color="border-blue-500" />
+                <Card title="Education Level" value={result.summary.education_level} color="border-green-500" />
+                <Card title="Sentence Complexity" value={result.summary.sentence_complexity} color="border-yellow-400" />
+                <Card title="Word Simplicity" value={result.summary.word_simplicity} color="border-purple-400" />
               </div>
-            ))}
-          </div>
+              <Card title="Insight" value={result.summary.insight} color="border-cyan-400" />
+              <Card title="Suggestion" value={result.summary.suggestion} color="border-gray-500" />
+            </>
+          )}
 
-          {/* Action Buttons */}
-          <div className="flex flex-wrap justify-center gap-4 mt-10">
+          {mode === "tone" && result.summary && (
+            <>
+              <h2 className="text-2xl font-semibold text-cyan-300 mb-4">💬 Tone Analysis</h2>
+              <Card title="Dominant Tone" value={result.summary.dominant_tone} color="border-blue-500" />
+              <Card title="Confidence" value={result.summary.confidence} color="border-green-400" />
+              <Card title="Feedback" value={result.summary.feedback} color="border-yellow-500" />
+            </>
+          )}
+
+          {mode === "plagiarism" && result.summary && (
+            <>
+              <h2 className="text-2xl font-semibold text-red-300 mb-4">🔍 Plagiarism Report</h2>
+              <Card title="Plagiarism Score" value={result.summary.plagiarism_score} color="border-red-500" />
+              <Card title="Feedback" value={result.summary.feedback} color="border-gray-500" />
+            </>
+          )}
+
+          {/* Buttons */}
+          <div className="flex justify-end gap-4 mt-6">
             <button
               onClick={copyReport}
-              className="px-5 py-2 rounded-lg bg-gray-800 text-white font-medium hover:bg-gray-900 transition-all"
+              className="px-4 py-2 border border-gray-600 rounded-lg text-gray-300 hover:bg-[#1e293b] transition-all"
             >
               Copy Report
             </button>
             <button
               onClick={downloadPDF}
-              className="px-5 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-all"
+              className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-400 text-white rounded-lg hover:from-green-600 hover:to-emerald-500 transition-all shadow-md"
             >
               Download PDF
             </button>
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }
