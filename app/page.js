@@ -78,20 +78,31 @@ export default function Home() {
   };
 
   // ---------- Download as PDF ----------
-  const downloadPDF = () => {
-    if (!result) return;
-    const doc = new jsPDF();
-    doc.setFontSize(14);
-    doc.text("AI Readability, Tone & Plagiarism Report", 15, 20);
+const downloadPDF = () => {
+  if (!result) return;
+  const doc = new jsPDF();
+  doc.setFontSize(14);
+  doc.text("AI Readability, Tone & Plagiarism Report", 15, 20);
 
-    let y = 35;
-    Object.entries(result.summary).forEach(([key, value]) => {
-      doc.text(`${key.replace(/_/g, " ")}: ${value}`, 15, y);
-      y += 10;
-    });
-
-    doc.save("AI_Report.pdf");
+  // 🧹 Sanitize function: removes emojis and unsupported chars
+  const cleanText = (text) => {
+    if (typeof text !== "string") return text;
+    return text.replace(
+      /([\u2700-\u27BF]|[\uE000-\uF8FF]|[\uD83C-\uDBFF\uDC00-\uDFFF]|[\u2011-\u26FF])/g,
+      ""
+    );
   };
+
+  let y = 35;
+  Object.entries(result.summary).forEach(([key, value]) => {
+    const line = `${key.replace(/_/g, " ")}: ${cleanText(value)}`;
+    doc.text(line, 15, y);
+    y += 10;
+  });
+
+  doc.save("AI_Report.pdf");
+};
+
 
   // ---------- Card Component ----------
   const Card = ({ title, value, color }) => (
