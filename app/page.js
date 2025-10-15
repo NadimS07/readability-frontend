@@ -26,11 +26,11 @@ export default function Home() {
     setResult(null);
 
     const endpoint =
-      mode === "readability"
-        ? "/analyze_readability"
-        : mode === "tone"
-        ? "/analyze_tone"
-        : "/analyze_plagiarism"; // ✅ fixed endpoint name to match backend
+  mode === "readability"
+    ? "/analyze_readability"
+    : mode === "tone"
+    ? "/analyze_tone"
+    : "/check_plagiarism"; // ✅ exact same name as backend
 
     try {
       const res = await fetch(`${backendURL}${endpoint}`, {
